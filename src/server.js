@@ -37,6 +37,7 @@ import adminProductRoutes from "./routes/admin/products.js";
 import adminTicketTypeRoutes from "./routes/admin/ticketTypes.js";
 import adminOrderRoutes from "./routes/admin/orders.js";
 import adminUserRoutes from "./routes/admin/adminUsers.js";
+import mediaAccreditationRoutes from "./routes/mediaAccreditation.js";
 
 const app = express();
 
@@ -88,6 +89,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/ticket-types", ticketTypeRoutes);
 app.use("/api/checkout", checkoutRoutes);
 app.use("/api/webhooks", webhookRoutes);
+app.use("/api/media-accreditation", mediaAccreditationRoutes);
 
 // Admin — all behind requireAuth + requireRole (see middleware/auth.js).
 // adminAuthRoutes itself is public (it's the login endpoint).
