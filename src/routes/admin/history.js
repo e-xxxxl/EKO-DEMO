@@ -38,11 +38,7 @@ router.put("/:id", async (req, res, next) => {
 
 router.delete("/:id", async (req, res, next) => {
   try {
-    const milestone = await HistoryMilestone.findByIdAndUpdate(
-      req.params.id,
-      { isActive: false },
-      { new: true }
-    );
+    const milestone = await HistoryMilestone.findByIdAndDelete(req.params.id);
     if (!milestone) return res.status(404).json({ error: "Milestone not found" });
     res.json({ ok: true });
   } catch (err) {

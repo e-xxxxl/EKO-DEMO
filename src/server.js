@@ -38,6 +38,8 @@ import adminTicketTypeRoutes from "./routes/admin/ticketTypes.js";
 import adminOrderRoutes from "./routes/admin/orders.js";
 import adminUserRoutes from "./routes/admin/adminUsers.js";
 import mediaAccreditationRoutes from "./routes/mediaAccreditation.js";
+import adminTicketRoutes from "./routes/admin/tickets.js";
+import adminAnalyticsRoutes from "./routes/admin/analytics.js";
 
 const app = express();
 
@@ -109,6 +111,8 @@ app.use("/api/admin/products", adminProductRoutes);
 app.use("/api/admin/ticket-types", adminTicketTypeRoutes);
 app.use("/api/admin/orders", adminOrderRoutes);
 app.use("/api/admin/users", adminUserRoutes);
+app.use("/api/admin/tickets", adminTicketRoutes);
+app.use("/api/admin/analytics", adminAnalyticsRoutes);
 
 // Central error handler — never leak stack traces in production
 app.use((err, _req, res, _next) => {

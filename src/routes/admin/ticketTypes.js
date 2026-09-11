@@ -40,11 +40,7 @@ router.put("/:id", async (req, res, next) => {
 
 router.delete("/:id", async (req, res, next) => {
   try {
-    const ticketType = await TicketType.findByIdAndUpdate(
-      req.params.id,
-      { isActive: false },
-      { new: true }
-    );
+    const ticketType = await TicketType.findByIdAndDelete(req.params.id);
     if (!ticketType) return res.status(404).json({ error: "Ticket type not found" });
     res.json({ ok: true });
   } catch (err) {

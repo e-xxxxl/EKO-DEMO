@@ -40,11 +40,7 @@ router.put("/:id", async (req, res, next) => {
 
 router.delete("/:id", async (req, res, next) => {
   try {
-    const item = await GalleryItem.findByIdAndUpdate(
-      req.params.id,
-      { isActive: false },
-      { new: true }
-    );
+    const item = await GalleryItem.findByIdAndDelete(req.params.id);
     if (!item) return res.status(404).json({ error: "Gallery item not found" });
     res.json({ ok: true });
   } catch (err) {

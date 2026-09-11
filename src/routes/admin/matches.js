@@ -16,7 +16,7 @@ router.get("/", async (_req, res, next) => {
 
 router.get("/:id", async (req, res, next) => {
   try {
-    const match = await Match.findById(req.params.id).populate("lineup");
+    const match = await Match.findById(req.params.id).populate(["lineup", "substitutes"]);
     if (!match) return res.status(404).json({ error: "Match not found" });
     res.json(match);
   } catch (err) {
@@ -48,12 +48,7 @@ router.put("/:id", async (req, res, next) => {
 
 router.delete("/:id", async (req, res, next) => {
   try {
-    // Soft delete — keeps historical lineups/events intact, just hides from the public site
-    const match = await Match.findByIdAndUpdate(
-      req.params.id,
-      { isActive: false },
-      { new: true }
-    );
+    const match = await Match.findByIdAndDelete(req.params.id);
     if (!match) return res.status(404).json({ error: "Match not found" });
     res.json({ ok: true });
   } catch (err) {

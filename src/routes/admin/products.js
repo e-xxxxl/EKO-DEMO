@@ -4,7 +4,7 @@ import { requireAuth, requireRole } from "../../middleware/auth.js";
 
 const router = Router();
 
-router.use(requireAuth, requireRole("shop_manager"));
+router.use(requireAuth, requireRole("shop_manager", "inventory_manager"));
 
 router.get("/", async (_req, res, next) => {
   try {
@@ -40,11 +40,7 @@ router.put("/:id", async (req, res, next) => {
 
 router.delete("/:id", async (req, res, next) => {
   try {
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      { isActive: false },
-      { new: true }
-    );
+    const product = await Product.findByIdAndDelete(req.params.id);
     if (!product) return res.status(404).json({ error: "Product not found" });
     res.json({ ok: true });
   } catch (err) {

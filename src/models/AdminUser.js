@@ -8,8 +8,9 @@ import bcrypt from "bcryptjs";
 const ROLES = [
   "super_admin", // full access to every admin section, incl. managing other admin users
   "content_editor", // news, fixtures/results, players, coaches, gallery, sponsors, pages
-  "ticket_manager", // create matches for sale, ticket categories/prices, view sales, validate QR
-  "shop_manager", // products, inventory, orders
+  "ticket_manager", // create matches for sale, ticket categories/prices, view sales
+  "shop_manager", // products, orders
+  "inventory_manager", // shop products/orders + matchday ticket scanning at the gate (2026-09-09)
 ];
 
 const adminUserSchema = new mongoose.Schema(

@@ -38,11 +38,7 @@ router.put("/:id", async (req, res, next) => {
 
 router.delete("/:id", async (req, res, next) => {
   try {
-    const trophy = await Trophy.findByIdAndUpdate(
-      req.params.id,
-      { isActive: false },
-      { new: true }
-    );
+    const trophy = await Trophy.findByIdAndDelete(req.params.id);
     if (!trophy) return res.status(404).json({ error: "Trophy not found" });
     res.json({ ok: true });
   } catch (err) {

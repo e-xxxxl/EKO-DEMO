@@ -40,11 +40,7 @@ router.put("/:id", async (req, res, next) => {
 
 router.delete("/:id", async (req, res, next) => {
   try {
-    const article = await News.findByIdAndUpdate(
-      req.params.id,
-      { isActive: false },
-      { new: true }
-    );
+    const article = await News.findByIdAndDelete(req.params.id);
     if (!article) return res.status(404).json({ error: "Article not found" });
     res.json({ ok: true });
   } catch (err) {

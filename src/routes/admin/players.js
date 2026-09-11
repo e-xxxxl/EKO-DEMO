@@ -44,12 +44,7 @@ router.put("/:id", async (req, res, next) => {
 
 router.delete("/:id", async (req, res, next) => {
   try {
-    // Soft delete — keeps historical stats/lineups intact, just hides from the public site
-    const player = await Player.findByIdAndUpdate(
-      req.params.id,
-      { isActive: false },
-      { new: true }
-    );
+    const player = await Player.findByIdAndDelete(req.params.id);
     if (!player) return res.status(404).json({ error: "Player not found" });
     res.json({ ok: true });
   } catch (err) {

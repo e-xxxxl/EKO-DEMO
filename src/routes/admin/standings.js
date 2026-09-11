@@ -41,11 +41,7 @@ router.put("/:id", async (req, res, next) => {
 
 router.delete("/:id", async (req, res, next) => {
   try {
-    const standing = await Standing.findByIdAndUpdate(
-      req.params.id,
-      { isActive: false },
-      { new: true }
-    );
+    const standing = await Standing.findByIdAndDelete(req.params.id);
     if (!standing) return res.status(404).json({ error: "Standing not found" });
     res.json({ ok: true });
   } catch (err) {
