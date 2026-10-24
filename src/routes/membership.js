@@ -1,5 +1,7 @@
 import { Router } from "express";
-import MembershipApplication, { MEMBERSHIP_TIERS } from "../models/MembershipApplication.js";
+import MembershipApplication from "../models/MembershipApplication.js";
+import MembershipTier from "../models/MembershipTier.js";
+import { ensureTiers, getContent } from "../services/membershipDefaults.js";
 import { sensitiveLimiter } from "../middleware/rateLimiters.js";
 import resend from "../services/email/resend.js";
 
@@ -18,6 +20,22 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+// Everything the /membership page shows: the page copy and pictures plus the
+// active packages in display order. Seeds the club's starting packages the
+// first time it is asked for.
+router.get("/plans", async (_req, res, next) => {
+  try {
+    await ensureTiers();
+    const [content, tiers] = await Promise.all([
+      getContent(),
+      MembershipTier.find({ isActive: true }).sort({ displayOrder: 1, createdAt: 1 }),
+    ]);
+    res.json({ content, tiers });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post("/", sensitiveLimiter, async (req, res, next) => {
   try {
     const { name, email, phone, tier } = req.body;
@@ -30,7 +48,8 @@ router.post("/", sensitiveLimiter, async (req, res, next) => {
     if (String(phone).replace(/\D/g, "").length < 7) {
       return res.status(400).json({ error: "Enter a valid phone number" });
     }
-    if (!MEMBERSHIP_TIERS[tier]) {
+    const chosen = typeof tier === "string" ? await MembershipTier.findOne({ slug: tier, isActive: true }) : null;
+    if (!chosen) {
       return res.status(400).json({ error: "Choose a membership package" });
     }
 
@@ -38,14 +57,15 @@ router.post("/", sensitiveLimiter, async (req, res, next) => {
       name: String(name).slice(0, 120),
       email: String(email).slice(0, 200),
       phone: String(phone).slice(0, 40),
-      tier,
+      tier: chosen.slug,
+      tierName: chosen.name,
     });
 
     // Saved. Now tell the marketing team. A failure here must not lose or
     // reject the application (it is already stored and visible in admin).
     if (resend.isConfigured()) {
       try {
-        const tierName = MEMBERSHIP_TIERS[tier];
+        const tierName = chosen.name;
         await resend.sendEmail({
           to: toEmail(),
           subject: `New membership application: ${tierName} (${name})`,
