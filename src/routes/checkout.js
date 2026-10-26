@@ -52,11 +52,24 @@ router.post("/", sensitiveLimiter, async (req, res, next) => {
         return res.status(404).json({ error: `${expectedRefType} not found: ${raw.ref}` });
       }
 
+      let unitPriceOverride;
       if (type === "shop") {
         if (doc.stock < quantity) {
           return res.status(409).json({ error: `Not enough stock for "${doc.name}"` });
         }
-        if (doc.sizes?.length > 0 && !doc.sizes.includes(raw.size)) {
+        // A kids line arrives as size "Kids" or "Kids <size>". It is charged the
+        // product's kidsPrice, and only if the product actually has one.
+        if (typeof raw.size === "string" && /^Kids(\s|$)/.test(raw.size)) {
+          if (doc.kidsPrice === undefined || doc.kidsPrice === null) {
+            return res.status(400).json({ error: `"${doc.name}" is not available in kids sizes` });
+          }
+          const kidsSize = raw.size.replace(/^Kids\s*/, "");
+          const allowed = doc.kidsSizes?.length > 0 ? doc.kidsSizes : doc.sizes;
+          if (allowed?.length > 0 && !allowed.includes(kidsSize)) {
+            return res.status(400).json({ error: `Choose a valid kids size for "${doc.name}"` });
+          }
+          unitPriceOverride = doc.kidsPrice;
+        } else if (doc.sizes?.length > 0 && !doc.sizes.includes(raw.size)) {
           return res.status(400).json({ error: `Choose a valid size for "${doc.name}"` });
         }
       } else {
@@ -70,7 +83,7 @@ router.post("/", sensitiveLimiter, async (req, res, next) => {
         refType: expectedRefType,
         ref: doc._id,
         name: doc.name,
-        unitPrice: doc.price, // read from the DB, not from req.body — this is the whole point
+        unitPrice: unitPriceOverride ?? doc.price, // read from the DB, not from req.body — this is the whole point
         quantity,
         size: type === "shop" ? raw.size : undefined,
       });

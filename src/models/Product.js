@@ -6,6 +6,8 @@ const productSchema = new mongoose.Schema(
     slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
     description: { type: String, trim: true },
     price: { type: Number, required: true, min: 0 }, // Naira, whole/decimal — never trust a client-supplied price at checkout, always read this field server-side
+    kidsPrice: { type: Number, min: 0 }, // optional: price of the kids' version; when set, shoppers can choose "Kids" and are charged this instead of `price`
+    kidsSizes: [{ type: String, trim: true }], // optional kids size labels; empty means kids use the same `sizes`
     category: {
       type: String,
       enum: ["jersey", "apparel", "accessories", "other"],
