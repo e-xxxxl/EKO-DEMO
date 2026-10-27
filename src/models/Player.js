@@ -9,6 +9,15 @@ const playerSchema = new mongoose.Schema(
     dateOfBirth: { type: Date },
     nationality: { type: String, trim: true },
     photoUrl: { type: String, trim: true },
+    // Up to two more photos, shown on the player's own page.
+    extraPhotos: {
+      type: [{ type: String, trim: true }],
+      default: [],
+      validate: { validator: (v) => v.length <= 2, message: "A player can have at most 2 additional photos" },
+    },
+    // When true the site shows the player's photos with the background
+    // removed (a transparent cut-out), done by Cloudinary's AI at display time.
+    photoCutout: { type: Boolean, default: false },
     bio: { type: String, trim: true },
     stats: {
       appearances: { type: Number, default: 0 },
