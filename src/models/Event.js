@@ -13,6 +13,8 @@ const eventSchema = new mongoose.Schema(
     imageUrl: { type: String, trim: true }, // cover photo
     images: [{ type: String, trim: true }], // extra photos shown on the event page
     isActive: { type: Boolean, default: true },
+    // Also show this event as a slide in the homepage hero carousel (until its date has passed).
+    showInHero: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
