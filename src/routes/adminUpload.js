@@ -24,7 +24,12 @@ router.post(
     const { folder = "eko-united-fc" } = req.body;
     const timestamp = Math.round(Date.now() / 1000);
 
-    const paramsToSign = { timestamp, folder };
+    // Applied by Cloudinary as the file arrives, so the stored original is never
+    // larger than it needs to be: nothing wider or taller than 2400px, and
+    // re-encoded at "good" quality. A 4000x5600 phone photo of 2.4MB comes out
+    // a fraction of that, and the site never shows more than ~2400px anyway.
+    const transformation = "c_limit,w_2400,h_2400/q_auto:good";
+    const paramsToSign = { timestamp, folder, transformation };
     const sortedParams = Object.keys(paramsToSign)
       .sort()
       .map((key) => `${key}=${paramsToSign[key]}`)
@@ -41,6 +46,7 @@ router.post(
       apiKey: process.env.CLOUDINARY_API_KEY,
       cloudName: process.env.CLOUDINARY_CLOUD_NAME,
       folder,
+      transformation,
     });
   }
 );

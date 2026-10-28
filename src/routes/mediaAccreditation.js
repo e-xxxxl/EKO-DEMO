@@ -1,60 +1,52 @@
 import { Router } from "express";
+import Enquiry from "../models/Enquiry.js";
 import { sensitiveLimiter } from "../middleware/rateLimiters.js";
-import resend from "../services/email/resend.js";
+import { notifyMarketing } from "../services/email/notify.js";
 
 const router = Router();
 
-const TO_EMAIL = "Ekounitedfc01@gmail.com";
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Escapes user-supplied text before it goes into an HTML email body — this
-// is the one place on the public site where a visitor's raw input is
-// embedded directly into HTML that gets sent/rendered elsewhere (an inbox),
-// so it needs the same treatment as any other untrusted-input-into-HTML spot.
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
+// Saved first, then emailed to the marketing team (see services/email/notify.js).
+// Before this, a request was only emailed, so with no email key set it was
+// rejected outright; now it is always kept and shows in the admin inbox.
 router.post("/", sensitiveLimiter, async (req, res, next) => {
   try {
     const { name, email, phone, outlet, role, matchInterest, message } = req.body;
     if (!name || !email || !outlet || !message) {
       return res.status(400).json({ error: "Name, email, outlet and message are required" });
     }
-
-    if (!resend.isConfigured()) {
-      // Never silently pretend this was sent — tell the truth so a real
-      // request doesn't quietly vanish before RESEND_API_KEY is set.
-      return res.status(503).json({
-        error:
-          "Media accreditation requests can't be emailed automatically yet — please contact the club directly in the meantime.",
-      });
+    if (typeof email !== "string" || !EMAIL_RE.test(email.trim())) {
+      return res.status(400).json({ error: "Enter a valid email address" });
     }
 
-    const html = `
-      <h2>New Media Accreditation Request</h2>
-      <p><strong>Name:</strong> ${escapeHtml(name)}</p>
-      <p><strong>Email:</strong> ${escapeHtml(email)}</p>
-      <p><strong>Phone:</strong> ${escapeHtml(phone || "—")}</p>
-      <p><strong>Outlet / Organisation:</strong> ${escapeHtml(outlet)}</p>
-      <p><strong>Role:</strong> ${escapeHtml(role || "—")}</p>
-      <p><strong>Match(es) interested in:</strong> ${escapeHtml(matchInterest || "—")}</p>
-      <p><strong>Message:</strong></p>
-      <p>${escapeHtml(message).replace(/\n/g, "<br/>")}</p>
-    `;
+    const details = {
+      "Outlet / Organisation": String(outlet).slice(0, 160),
+      Role: String(role || "").slice(0, 120),
+      "Match(es) interested in": String(matchInterest || "").slice(0, 200),
+      Message: String(message).slice(0, 2000),
+    };
 
-    await resend.sendEmail({
-      to: TO_EMAIL,
-      subject: `Media Accreditation Request — ${name} (${outlet})`,
-      html,
-      replyTo: email,
+    const enquiry = await Enquiry.create({
+      type: "media",
+      name: String(name).slice(0, 120),
+      email: String(email).slice(0, 200),
+      phone: String(phone || "").slice(0, 40),
+      details,
     });
 
-    res.json({ ok: true });
+    const sent = await notifyMarketing({
+      subject: `Media accreditation request: ${name} (${outlet})`,
+      heading: "New Media Accreditation Request",
+      rows: [["Name", name], ["Email", email], ["Phone", phone], ...Object.entries(details)],
+      replyTo: String(email).trim(),
+    });
+    if (sent) {
+      enquiry.emailed = true;
+      await enquiry.save();
+    }
+
+    res.status(201).json({ ok: true });
   } catch (err) {
     next(err);
   }

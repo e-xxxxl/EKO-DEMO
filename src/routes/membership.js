@@ -4,10 +4,11 @@ import MembershipTier from "../models/MembershipTier.js";
 import { ensureTiers, getContent } from "../services/membershipDefaults.js";
 import { sensitiveLimiter } from "../middleware/rateLimiters.js";
 import resend from "../services/email/resend.js";
+import { marketingEmail } from "../services/email/notify.js";
 
 const router = Router();
 
-const toEmail = () => process.env.MEMBERSHIP_TO_EMAIL || "marketing&media@ekounitedfc.com";
+const toEmail = () => process.env.MEMBERSHIP_TO_EMAIL || marketingEmail();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Visitor input goes into an HTML email body, so it is escaped first.

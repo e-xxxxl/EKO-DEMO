@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 // Up to three photos for the intro collage at the top of a page that would
 // otherwise be mostly text (media accreditation, contact, careers...). `key`
 // names the page. Edited in the admin panel under Page photos.
-export const PAGE_PHOTO_KEYS = ["media-accreditation", "contact", "careers", "sponsors", "trophies", "club-history"];
+export const PAGE_PHOTO_KEYS = ["media-accreditation", "contact", "careers", "sponsors", "trophies", "club-history", "volunteer"];
 
 const pagePhotosSchema = new mongoose.Schema(
   {
