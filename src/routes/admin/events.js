@@ -15,7 +15,7 @@ router.get("/", async (_req, res, next) => {
 });
 
 function fields(body) {
-  const { name, slug, description, eventDate, location, imageUrl, images, isActive, showInHero } = body;
+  const { name, slug, description, eventDate, location, imageUrl, images, isActive, showInHero, isCsr } = body;
   return {
     name,
     slug,
@@ -26,6 +26,7 @@ function fields(body) {
     images: Array.isArray(images) ? images.filter(Boolean) : [],
     isActive,
     showInHero: Boolean(showInHero),
+    isCsr: Boolean(isCsr),
   };
 }
 

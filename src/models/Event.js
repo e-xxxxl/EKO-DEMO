@@ -14,6 +14,8 @@ const eventSchema = new mongoose.Schema(
     images: [{ type: String, trim: true }], // extra photos shown on the event page
     isActive: { type: Boolean, default: true },
     // Also show this event as a slide in the homepage hero carousel (until its date has passed).
+    // A Community Social Responsibility (CSR) activity rather than an ordinary club event.
+    isCsr: { type: Boolean, default: false },
     showInHero: { type: Boolean, default: false },
   },
   { timestamps: true }

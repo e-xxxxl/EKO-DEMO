@@ -1,6 +1,6 @@
 import resend from "./resend.js";
 
-// Where website forms (volunteer, media accreditation, membership) are sent.
+// Where website forms (volunteer, campus ambassador, media accreditation, membership) are sent.
 // Override with MARKETING_TO_EMAIL in the backend environment.
 export const marketingEmail = () => process.env.MARKETING_TO_EMAIL || "marketing&media@ekounitedfc.com";
 
