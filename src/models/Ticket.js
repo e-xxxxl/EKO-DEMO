@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { randomInt } from "node:crypto";
 
 // One document per physical ticket, not per order line — an order for
 // "3× Regular" produces 3 of these, each independently scannable/usable.
@@ -12,9 +13,10 @@ const ticketSchema = new mongoose.Schema(
     ticketTypeName: { type: String, required: true }, // snapshot, same reasoning as Order line items
     holderName: { type: String, required: true, trim: true },
     holderEmail: { type: String, trim: true, lowercase: true },
-    // 6 characters, uppercase alphanumeric, excluding easily-confused
-    // characters (0/O, 1/I/L) — short enough to read aloud or type at a
-    // gate, still a 1-in-~78 million collision space per code.
+    holderPhone: { type: String, trim: true },
+    // New tickets get 8 digits (shown as "1234 5678"): easy to read aloud or
+    // type at a gate, and the same value is encoded in the QR code. Tickets
+    // issued before this carry 6 letters and digits and keep working.
     code: { type: String, required: true, unique: true, uppercase: true },
     used: { type: Boolean, default: false },
     usedAt: { type: Date },
@@ -24,14 +26,16 @@ const ticketSchema = new mongoose.Schema(
 
 ticketSchema.index({ match: 1 });
 
-const CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
-
 export function generateTicketCode() {
-  let code = "";
-  for (let i = 0; i < 6; i++) {
-    code += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
-  }
-  return code;
+  return String(randomInt(0, 100_000_000)).padStart(8, "0");
+}
+
+// Accepts what a person types or a scanner reads: spaces, dashes and case
+// don't matter ("1234 5678", "1234-5678" and "12345678" are the same ticket).
+export function normalizeTicketCode(raw) {
+  return String(raw || "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toUpperCase();
 }
 
 export default mongoose.model("Ticket", ticketSchema);

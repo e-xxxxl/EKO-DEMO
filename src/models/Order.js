@@ -10,6 +10,7 @@ const orderItemSchema = new mongoose.Schema(
     unitPrice: { type: Number, required: true, min: 0 }, // snapshot — always server-computed, never taken from the client
     quantity: { type: Number, required: true, min: 1 },
     size: { type: String, trim: true }, // only meaningful for shop items with sizes
+    version: { type: String, enum: ["replica", "player"] }, // jerseys sold in two versions
   },
   { _id: false }
 );
@@ -21,7 +22,14 @@ const orderSchema = new mongoose.Schema(
     customerName: { type: String, required: true, trim: true },
     customerEmail: { type: String, required: true, trim: true, lowercase: true },
     customerPhone: { type: String, trim: true },
-    totalAmount: { type: Number, required: true, min: 0 }, // sum of unitPrice*quantity, computed server-side at creation
+    subtotalAmount: { type: Number, min: 0 }, // sum of unitPrice*quantity before any referral discount
+    discountAmount: { type: Number, default: 0, min: 0 }, // referral discount taken off, computed server-side
+    referralCode: { type: String, trim: true, uppercase: true, index: true }, // snapshot of the code used, for tracking
+    referralOwner: { type: String, trim: true }, // snapshot of the name the code belongs to
+    totalAmount: { type: Number, required: true, min: 0 }, // what is charged: subtotal minus discount, computed server-side at creation
+    marketingConsent: { type: Boolean, default: false }, // ticked "send me emails and SMS from the club"
+    consentAt: { type: Date },
+    accessToken: { type: String }, // lets the buyer, and only the buyer, see their tickets on the success page
     currency: { type: String, default: "NGN" },
     paymentProvider: { type: String, enum: ["paystack", "flutterwave"] },
     paymentReference: { type: String, trim: true, index: true },

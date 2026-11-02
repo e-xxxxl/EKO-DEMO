@@ -1,5 +1,5 @@
 import { Router } from "express";
-import Ticket from "../../models/Ticket.js";
+import Ticket, { normalizeTicketCode } from "../../models/Ticket.js";
 import Match from "../../models/Match.js";
 import { requireAuth, requireRole } from "../../middleware/auth.js";
 import { sensitiveLimiter } from "../../middleware/rateLimiters.js";
@@ -12,8 +12,16 @@ const router = Router();
 router.use(requireAuth, requireRole("ticket_manager", "inventory_manager"));
 
 async function findByCode(code) {
-  if (!code || typeof code !== "string") return null;
-  return Ticket.findOne({ code: code.trim().toUpperCase() }).populate("match", "opponent kickoff isHome");
+  const clean = normalizeTicketCode(code);
+  if (!clean) return null;
+  return Ticket.findOne({ code: clean }).populate("match", "opponent kickoff isHome");
+}
+
+// A ticket for a different match must not get someone in. The scan page sends
+// the match it is set to; if the ticket belongs to another one, say so.
+function wrongMatch(ticket, matchId) {
+  if (!matchId || !ticket.match) return false;
+  return String(ticket.match._id) !== String(matchId);
 }
 
 // Read-only lookup — shows the ticket's status before a gate staffer commits
@@ -23,6 +31,9 @@ router.post("/lookup", sensitiveLimiter, async (req, res, next) => {
   try {
     const ticket = await findByCode(req.body.code);
     if (!ticket) return res.status(404).json({ error: "No ticket found with that code" });
+    if (wrongMatch(ticket, req.body.matchId)) {
+      return res.status(409).json({ error: `This ticket is for ${ticket.match.opponent}, not the match you selected` });
+    }
     res.json(ticket);
   } catch (err) {
     next(err);
@@ -37,6 +48,9 @@ router.post("/validate", sensitiveLimiter, async (req, res, next) => {
   try {
     const ticket = await findByCode(req.body.code);
     if (!ticket) return res.status(404).json({ error: "No ticket found with that code" });
+    if (wrongMatch(ticket, req.body.matchId)) {
+      return res.status(409).json({ error: `This ticket is for ${ticket.match.opponent}, not the match you selected` });
+    }
 
     if (ticket.used) {
       return res.json({ ...ticket.toObject(), alreadyUsed: true });

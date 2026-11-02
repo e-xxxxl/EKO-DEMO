@@ -30,6 +30,43 @@ router.get("/", async (req, res, next) => {
   }
 });
 
+function csvCell(value) {
+  const s = String(value ?? "");
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// People who ticked "send me emails and SMS from the club" when they ordered,
+// one row per email address (their most recent order), as a CSV the club can
+// open in a spreadsheet or import into a mailing tool. Only consenting
+// customers are ever included. Scoped like the order list: shop staff get
+// shop customers, the ticket manager gets ticket customers.
+router.get("/contacts.csv", async (req, res, next) => {
+  try {
+    const roleType =
+      req.admin.role === "shop_manager" || req.admin.role === "inventory_manager"
+        ? "shop"
+        : req.admin.role === "ticket_manager"
+          ? "ticket"
+          : null;
+    const type = req.query.type || roleType;
+    const orders = await Order.find({ marketingConsent: true, ...(type ? { type } : {}) }).sort({ createdAt: -1 });
+
+    const seen = new Set();
+    const rows = [["Name", "Email", "Phone", "Bought", "Date"]];
+    for (const o of orders) {
+      const key = o.customerEmail;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rows.push([o.customerName, o.customerEmail, o.customerPhone || "", o.type === "ticket" ? "Tickets" : "Shop", o.createdAt.toISOString().slice(0, 10)]);
+    }
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="eko-united-contacts.csv"');
+    res.send(rows.map((r) => r.map(csvCell).join(",")).join("\r\n"));
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.put("/:id", async (req, res, next) => {
   try {
     // Only `fulfilled` is editable here (shop orders — has the item shipped/

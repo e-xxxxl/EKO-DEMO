@@ -38,6 +38,7 @@ async function createTicketsForOrder(order, item) {
           ticketTypeName: item.name,
           holderName: order.customerName,
           holderEmail: order.customerEmail,
+          holderPhone: order.customerPhone,
           code: generateTicketCode(),
         });
         created.push({ ticketTypeName: item.name, code: ticket.code, matchInfo });

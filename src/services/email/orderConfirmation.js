@@ -18,9 +18,17 @@ function formatNaira(amount) {
   return `₦${Number(amount).toLocaleString("en-NG")}`;
 }
 
+function frontendBase() {
+  return (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
+}
+
+// "12345678" reads better as "1234 5678"; older six-character codes stay as they are.
+function formatCode(code) {
+  return /^\d{8}$/.test(code) ? `${code.slice(0, 4)} ${code.slice(4)}` : code;
+}
+
 function crestUrl() {
-  const base = process.env.FRONTEND_URL || "http://localhost:3000";
-  return `${base.replace(/\/$/, "")}/brand/crest-mark.png`;
+  return `${frontendBase()}/brand/crest-mark.png`;
 }
 
 function formatMatchDate(iso) {
@@ -49,7 +57,7 @@ function itemsTableRows(order) {
       (item) => `
       <tr>
         <td style="padding:12px 0;border-bottom:1px solid #e5e9ef;color:${NAVY};font-size:14px;">
-          ${escapeHtml(item.name)}${item.size ? ` <span style="color:#8a94a6;">(${escapeHtml(item.size)})</span>` : ""}
+          ${escapeHtml(item.name)}${item.version ? ` <span style="color:#8a94a6;">(${item.version === "replica" ? "Replica" : "Player version"})</span>` : ""}${item.size ? ` <span style="color:#8a94a6;">(${escapeHtml(item.size)})</span>` : ""}
         </td>
         <td style="padding:12px 0;border-bottom:1px solid #e5e9ef;color:#8a94a6;font-size:14px;text-align:center;">
           &times;${item.quantity}
@@ -79,7 +87,10 @@ function ticketsBlock(tickets) {
             <tr>
               <td style="padding:14px 18px;">
                 <p style="margin:0;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:${CYAN};font-weight:700;">${escapeHtml(t.ticketTypeName)}</p>
-                <p style="margin:4px 0 0;font-size:24px;letter-spacing:5px;font-weight:700;color:${NAVY};font-family:'Courier New',monospace;">${t.code}</p>
+                <p style="margin:4px 0 0;font-size:26px;letter-spacing:4px;font-weight:700;color:${NAVY};font-family:'Courier New',monospace;">${escapeHtml(formatCode(t.code))}</p>
+              </td>
+              <td style="padding:10px 18px 10px 0;text-align:right;" width="110">
+                <img src="${frontendBase()}/api/qr/${encodeURIComponent(t.code)}" width="96" height="96" alt="QR code for ticket ${escapeHtml(formatCode(t.code))}" style="display:block;margin-left:auto;border:0;background:#ffffff;" />
               </td>
             </tr>
           </table>
@@ -94,7 +105,7 @@ function ticketsBlock(tickets) {
         <p style="margin:0 0 4px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:${NAVY};">Your Tickets</p>
         ${matchLine ? `<p style="margin:0 0 14px;font-size:14px;color:#5a6478;">${matchLine}</p>` : ""}
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${codeRows}</table>
-        <p style="margin:6px 0 0;font-size:13px;color:#8a94a6;line-height:1.5;">Show a code at the gate scan point to be admitted. Each code is valid for one person, one entry only.</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#8a94a6;line-height:1.5;">At the gate, show the QR code or read out the number. Each ticket is valid for one person, one entry only.</p>
       </td>
     </tr>`;
 }
@@ -102,9 +113,18 @@ function ticketsBlock(tickets) {
 export function buildOrderConfirmationEmail(order, tickets = []) {
   const isTicketOrder = order.type === "ticket";
   const orderRef = String(order._id).slice(-8).toUpperCase();
+  const isFree = Number(order.totalAmount) === 0;
   const subject = isTicketOrder
     ? `Your Eko United FC tickets (#${orderRef})`
     : `Order confirmed, #${orderRef}, Eko United FC`;
+  const discountRow =
+    Number(order.discountAmount) > 0
+      ? `<tr>
+                    <td style="padding:12px 0 0;font-size:13px;color:#5a6478;">Referral discount</td>
+                    <td></td>
+                    <td style="padding:12px 0 0;font-size:13px;color:#5a6478;text-align:right;">-${formatNaira(order.discountAmount)}</td>
+                  </tr>`
+      : "";
 
   const html = `<!doctype html>
 <html>
@@ -124,15 +144,16 @@ export function buildOrderConfirmationEmail(order, tickets = []) {
               <td style="padding:32px 40px;">
                 <p style="margin:0 0 4px;font-size:15px;color:${NAVY};">Hi ${escapeHtml(order.customerName)},</p>
                 <p style="margin:0 0 24px;font-size:14px;color:#5a6478;line-height:1.6;">
-                  ${isTicketOrder ? "Payment received. Your match tickets are below." : "Payment received. Here is your order summary."}
+                  ${isTicketOrder ? (isFree ? "Your tickets are confirmed and are below." : "Payment received. Your match tickets are below.") : isFree ? "Your order is confirmed. Here is your order summary." : "Payment received. Here is your order summary."}
                   Order reference <strong>#${orderRef}</strong>.
                 </p>
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                   ${itemsTableRows(order)}
+                  ${discountRow}
                   <tr>
                     <td style="padding:16px 0 0;font-size:14px;font-weight:700;color:${NAVY};">Total</td>
                     <td></td>
-                    <td style="padding:16px 0 0;font-size:16px;font-weight:700;color:${NAVY};text-align:right;">${formatNaira(order.totalAmount)}</td>
+                    <td style="padding:16px 0 0;font-size:16px;font-weight:700;color:${NAVY};text-align:right;">${isFree ? "Free" : formatNaira(order.totalAmount)}</td>
                   </tr>
                   ${ticketsBlock(tickets)}
                 </table>
