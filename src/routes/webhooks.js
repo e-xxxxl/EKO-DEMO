@@ -5,6 +5,7 @@ import TicketType from "../models/TicketType.js";
 import Match from "../models/Match.js";
 import Ticket, { generateTicketCode } from "../models/Ticket.js";
 import paystack from "../services/payments/paystack.js";
+import { getProviderByName } from "../services/payments/index.js";
 import flutterwave from "../services/payments/flutterwave.js";
 import { sendOrderConfirmationEmail } from "../services/email/orderConfirmation.js";
 
@@ -59,8 +60,12 @@ async function createTicketsForOrder(order, item) {
 // minting duplicate tickets.
 async function markOrderPaid(order) {
   if (order.status === "paid") return;
+  // Claim the order in one atomic step. The webhook and the buyer's return
+  // page can both confirm the same payment at nearly the same moment; only the
+  // one that flips the order to paid goes on to take stock and make tickets.
+  const claimed = await Order.findOneAndUpdate({ _id: order._id, status: { $ne: "paid" } }, { $set: { status: "paid" } });
+  if (!claimed) return;
   order.status = "paid";
-  await order.save();
 
   const tickets = [];
   for (const item of order.items) {
@@ -98,6 +103,28 @@ export async function loadTicketsForEmail(order) {
 
 export { markOrderPaid };
 
+// Asks the payment provider whether this order was really paid, and if so
+// completes it. Never trusts a webhook body or the browser: the provider's own
+// API answers, and the amount has to cover the order total. Used by both
+// webhooks and by the success page the buyer lands on after paying, so the
+// order completes even before the webhook arrives. Returns what the provider
+// said (e.g. "success", "abandoned") so the page can tell a buyer who closed
+// the payment window from one whose payment is still going through.
+export async function confirmWithProvider(order, provider = getProviderByName(order.paymentProvider)) {
+  if (order.status === "paid") return { providerStatus: "success" };
+  if (!provider || !order.paymentReference) return { providerStatus: null };
+  const result = await provider.verifyTransaction(order.paymentReference || String(order._id));
+  if (result.status === "paid") {
+    // Allow a kobo of rounding either way.
+    if (Number(result.amount) + 0.01 >= Number(order.totalAmount)) {
+      await markOrderPaid(order);
+    } else {
+      console.error(`[payments] Order ${order._id} paid ${result.amount} but total is ${order.totalAmount}; left pending.`);
+    }
+  }
+  return { providerStatus: result.providerStatus || result.status };
+}
+
 // order._id is used as both Paystack's `reference` and Flutterwave's `tx_ref`
 // (see services/payments/*.js's initialize()), so both webhooks look the
 // order up the same way.
@@ -109,10 +136,7 @@ router.post("/paystack", async (req, res) => {
     if (req.body?.event === "charge.success") {
       const orderId = req.body.data?.reference;
       const order = await Order.findById(orderId);
-      if (order) {
-        const result = await paystack.verifyTransaction(order.paymentReference || orderId);
-        if (result.status === "paid") await markOrderPaid(order);
-      }
+      if (order) await confirmWithProvider(order, paystack);
     }
     res.sendStatus(200);
   } catch (err) {
@@ -129,10 +153,7 @@ router.post("/flutterwave", async (req, res) => {
     if (req.body?.data?.status === "successful") {
       const orderId = req.body.data?.tx_ref;
       const order = await Order.findById(orderId);
-      if (order) {
-        const result = await flutterwave.verifyTransaction(order.paymentReference || orderId);
-        if (result.status === "paid") await markOrderPaid(order);
-      }
+      if (order) await confirmWithProvider(order, flutterwave);
     }
     res.sendStatus(200);
   } catch (err) {

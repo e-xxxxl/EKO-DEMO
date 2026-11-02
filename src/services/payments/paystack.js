@@ -51,8 +51,13 @@ async function verifyTransaction(reference) {
   });
   const body = await res.json();
   if (!res.ok || !body.status) throw new Error(body.message || "Paystack verification failed");
+  // Paystack's own words: success, failed, abandoned (the buyer closed the
+  // page), ongoing, pending, processing, queued, reversed. Only "success" is
+  // paid; a buyer who has not finished yet is still "pending", not failed.
+  const raw = body.data.status;
   return {
-    status: body.data.status === "success" ? "paid" : "failed",
+    status: raw === "success" ? "paid" : raw === "failed" || raw === "reversed" ? "failed" : "pending",
+    providerStatus: raw,
     amount: body.data.amount / 100,
   };
 }

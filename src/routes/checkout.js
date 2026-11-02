@@ -5,10 +5,11 @@ import Product from "../models/Product.js";
 import TicketType from "../models/TicketType.js";
 import Order from "../models/Order.js";
 import Ticket from "../models/Ticket.js";
+import Match from "../models/Match.js";
 import ReferralCode, { normalizeReferralCode, referralAppliesTo } from "../models/ReferralCode.js";
 import { getActiveProvider } from "../services/payments/index.js";
 import { checkoutLimiter } from "../middleware/rateLimiters.js";
-import { markOrderPaid } from "./webhooks.js";
+import { markOrderPaid, confirmWithProvider } from "./webhooks.js";
 
 const router = Router();
 
@@ -79,36 +80,27 @@ router.post("/", checkoutLimiter, async (req, res, next) => {
         if (doc.stock < quantity) {
           return res.status(409).json({ error: `Not enough stock for "${doc.name}"` });
         }
-        // A kids line arrives as size "Kids" or "Kids <size>". It is charged the
-        // product's kidsPrice, and only if the product actually has one.
-        if (typeof raw.size === "string" && /^Kids(\s|$)/.test(raw.size)) {
-          if (doc.kidsPrice === undefined || doc.kidsPrice === null) {
-            return res.status(400).json({ error: `"${doc.name}" is not available in kids sizes` });
+        if (doc.sizes?.length > 0 && !doc.sizes.includes(raw.size)) {
+          return res.status(400).json({ error: `Choose a valid size for "${doc.name}"` });
+        }
+        // A product with a replica price is sold in two versions; the
+        // player version (the main price) is the default.
+        if (doc.replicaPrice !== undefined && doc.replicaPrice !== null) {
+          if (raw.version === "replica") {
+            unitPrice = doc.replicaPrice;
+            version = "replica";
+          } else {
+            version = "player";
           }
-          const kidsSize = raw.size.replace(/^Kids\s*/, "");
-          const allowed = doc.kidsSizes?.length > 0 ? doc.kidsSizes : doc.sizes;
-          if (allowed?.length > 0 && !allowed.includes(kidsSize)) {
-            return res.status(400).json({ error: `Choose a valid kids size for "${doc.name}"` });
-          }
-          unitPrice = doc.kidsPrice;
-        } else {
-          if (doc.sizes?.length > 0 && !doc.sizes.includes(raw.size)) {
-            return res.status(400).json({ error: `Choose a valid size for "${doc.name}"` });
-          }
-          // A product with a replica price is sold in two versions; the
-          // player version (the main price) is the default.
-          if (doc.replicaPrice !== undefined && doc.replicaPrice !== null) {
-            if (raw.version === "replica") {
-              unitPrice = doc.replicaPrice;
-              version = "replica";
-            } else {
-              version = "player";
-            }
-          } else if (raw.version === "replica") {
-            return res.status(400).json({ error: `"${doc.name}" has no replica version` });
-          }
+        } else if (raw.version === "replica") {
+          return res.status(400).json({ error: `"${doc.name}" has no replica version` });
         }
       } else {
+        // Tickets are only sold for home matches.
+        const match = await Match.findById(doc.match);
+        if (!match || !match.isHome) {
+          return res.status(400).json({ error: "Tickets are only sold for home matches" });
+        }
         const remaining = doc.quantityAvailable - doc.quantitySold;
         if (remaining < quantity) {
           return res.status(409).json({ error: `Only ${Math.max(0, remaining)} "${doc.name}" tickets left` });
@@ -196,7 +188,18 @@ router.post("/", checkoutLimiter, async (req, res, next) => {
     }
 
     const callbackUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/checkout/success?orderId=${order._id}&token=${order.accessToken}`;
-    const { authorizationUrl, reference } = await provider.initialize({ order, callbackUrl });
+    let authorizationUrl;
+    let reference;
+    try {
+      ({ authorizationUrl, reference } = await provider.initialize({ order, callbackUrl }));
+    } catch (err) {
+      // The payment provider refused or could not be reached. Say so plainly,
+      // and do not leave a pending order behind that nobody can pay.
+      console.error(`[payments] Could not start payment for order ${order._id}: ${err.message}`);
+      order.status = "failed";
+      await order.save();
+      return res.status(502).json({ error: "We could not start the payment just now. Please try again in a moment." });
+    }
 
     order.paymentProvider = provider.name;
     order.paymentReference = reference;
@@ -223,6 +226,29 @@ router.get("/:orderId", async (req, res, next) => {
       discountAmount: order.discountAmount || 0,
       items: order.items,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Called by the success page the buyer lands on after paying: asks the payment
+// provider directly whether the payment went through and completes the order
+// if so, rather than waiting for the webhook. Needs the order's random token.
+router.get("/:orderId/verify", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.orderId)) return res.status(404).json({ error: "Order not found" });
+    const order = await Order.findById(req.params.orderId);
+    const token = String(req.query.token || "");
+    if (!order || !order.accessToken || order.accessToken !== token) return res.status(404).json({ error: "Order not found" });
+
+    let providerStatus = null;
+    try {
+      ({ providerStatus } = await confirmWithProvider(order));
+    } catch (err) {
+      // Provider unreachable right now: report the order as it stands; the webhook can still complete it.
+      console.error(`[payments] Could not verify order ${order._id}: ${err.message}`);
+    }
+    res.json({ status: order.status, providerStatus });
   } catch (err) {
     next(err);
   }

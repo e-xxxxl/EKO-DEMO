@@ -55,7 +55,8 @@ async function verifyTransaction(reference) {
     throw new Error(body.message || "Flutterwave verification failed");
   }
   return {
-    status: body.data.status === "successful" ? "paid" : "failed",
+    status: body.data.status === "successful" ? "paid" : body.data.status === "failed" ? "failed" : "pending",
+    providerStatus: body.data.status,
     amount: body.data.amount,
   };
 }
