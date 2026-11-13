@@ -27,6 +27,7 @@ const orderSchema = new mongoose.Schema(
     referralCode: { type: String, trim: true, uppercase: true, index: true }, // snapshot of the code used, for tracking
     referralOwner: { type: String, trim: true }, // snapshot of the name the code belongs to
     totalAmount: { type: Number, required: true, min: 0 }, // what is charged: subtotal minus discount, computed server-side at creation
+    paidAt: { type: Date }, // when the order was confirmed paid (or claimed, if free)
     marketingConsent: { type: Boolean, default: false }, // ticked "send me emails and SMS from the club"
     consentAt: { type: Date },
     accessToken: { type: String }, // lets the buyer, and only the buyer, see their tickets on the success page

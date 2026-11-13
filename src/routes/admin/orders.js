@@ -16,15 +16,12 @@ router.use(requireAuth, requireRole("shop_manager", "ticket_manager", "inventory
 // this is view sales + mark-fulfilled only, matching the signed scope.
 router.get("/", async (req, res, next) => {
   try {
-    const roleType =
-      req.admin.role === "shop_manager" || req.admin.role === "inventory_manager"
-        ? "shop"
-        : req.admin.role === "ticket_manager"
-          ? "ticket"
-          : null;
-    const type = req.query.type || roleType;
-    const filter = type ? { type } : {};
-    res.json(await Order.find(filter).sort({ createdAt: -1 }));
+    // Shop orders only. Ticket orders are a separate list under Ticketing
+    // (/api/admin/tickets/orders), so the two are never mixed on one screen.
+    if (req.admin.role === "ticket_manager") {
+      return res.status(403).json({ error: "Ticket orders are under Ticketing" });
+    }
+    res.json(await Order.find({ type: "shop" }).sort({ createdAt: -1 }));
   } catch (err) {
     next(err);
   }

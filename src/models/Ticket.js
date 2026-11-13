@@ -20,6 +20,7 @@ const ticketSchema = new mongoose.Schema(
     code: { type: String, required: true, unique: true, uppercase: true },
     used: { type: Boolean, default: false },
     usedAt: { type: Date },
+    usedBy: { type: String, trim: true }, // name of the staff member who checked it in
   },
   { timestamps: true }
 );

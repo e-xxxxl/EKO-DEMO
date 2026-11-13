@@ -63,7 +63,7 @@ async function markOrderPaid(order) {
   // Claim the order in one atomic step. The webhook and the buyer's return
   // page can both confirm the same payment at nearly the same moment; only the
   // one that flips the order to paid goes on to take stock and make tickets.
-  const claimed = await Order.findOneAndUpdate({ _id: order._id, status: { $ne: "paid" } }, { $set: { status: "paid" } });
+  const claimed = await Order.findOneAndUpdate({ _id: order._id, status: { $ne: "paid" } }, { $set: { status: "paid", paidAt: new Date() } });
   if (!claimed) return;
   order.status = "paid";
 
