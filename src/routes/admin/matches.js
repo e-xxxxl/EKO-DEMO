@@ -16,7 +16,8 @@ router.get("/", async (_req, res, next) => {
 
 router.get("/:id", async (req, res, next) => {
   try {
-    const match = await Match.findById(req.params.id).populate(["lineup", "substitutes"]);
+    // Plain player ids, not populated players: the lineup picker in the admin form works with ids and loads the squad itself.
+    const match = await Match.findById(req.params.id);
     if (!match) return res.status(404).json({ error: "Match not found" });
     res.json(match);
   } catch (err) {
