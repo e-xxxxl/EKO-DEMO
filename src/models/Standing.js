@@ -12,6 +12,8 @@ const standingSchema = new mongoose.Schema(
     goalsFor: { type: Number, default: 0 },
     goalsAgainst: { type: Number, default: 0 },
     points: { type: Number, default: 0 },
+    // The last results, oldest first, at most five: "W" win, "D" draw, "L" loss.
+    form: { type: [{ type: String, enum: ["W", "D", "L"] }], default: [], validate: { validator: (v) => v.length <= 5, message: "At most 5 results in the form guide" } },
     position: { type: Number, required: true },
     season: { type: String, default: "2026" }, // supports keeping past seasons around
     isActive: { type: Boolean, default: true },
