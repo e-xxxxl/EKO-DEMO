@@ -54,6 +54,9 @@ import adminUserRoutes from "./routes/admin/adminUsers.js";
 import mediaAccreditationRoutes from "./routes/mediaAccreditation.js";
 import adminTicketRoutes from "./routes/admin/tickets.js";
 import adminAnalyticsRoutes from "./routes/admin/analytics.js";
+import adminActivityRoutes from "./routes/admin/activity.js";
+import adminStorageRoutes from "./routes/admin/storage.js";
+import { activityLogger } from "./middleware/activityLog.js";
 
 const app = express();
 
@@ -116,6 +119,9 @@ app.use("/api/media-accreditation", mediaAccreditationRoutes);
 
 // Admin — all behind requireAuth + requireRole (see middleware/auth.js).
 // adminAuthRoutes itself is public (it's the login endpoint).
+// Every change a staff member makes is written to the activity log (super admin
+// reads it on /admin/activity); see middleware/activityLog.js.
+app.use("/api/admin", activityLogger);
 app.use("/api/admin/auth", adminAuthRoutes);
 app.use("/api/admin/players", adminPlayerRoutes);
 app.use("/api/admin/matches", adminMatchRoutes);
@@ -141,6 +147,8 @@ app.use("/api/admin/referrals", adminReferralRoutes);
 app.use("/api/admin/users", adminUserRoutes);
 app.use("/api/admin/tickets", adminTicketRoutes);
 app.use("/api/admin/analytics", adminAnalyticsRoutes);
+app.use("/api/admin/activity", adminActivityRoutes);
+app.use("/api/admin/storage", adminStorageRoutes);
 
 // Central error handler — never leak stack traces in production
 app.use((err, _req, res, _next) => {

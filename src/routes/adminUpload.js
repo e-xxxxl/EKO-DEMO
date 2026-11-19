@@ -25,10 +25,12 @@ router.post(
     const timestamp = Math.round(Date.now() / 1000);
 
     // Applied by Cloudinary as the file arrives, so the stored original is never
-    // larger than it needs to be: nothing wider or taller than 2400px, and
-    // re-encoded at "good" quality. A 4000x5600 phone photo of 2.4MB comes out
-    // a fraction of that, and the site never shows more than ~2400px anyway.
-    const transformation = "c_limit,w_2400,h_2400/q_auto:good";
+    // larger than it needs to be: nothing wider or taller than 2000px (the widest
+    // the site ever shows a photo, full-width banners on a big screen), re-encoded
+    // with Cloudinary's automatic quality. The admin panel also shrinks the file
+    // in the browser before sending it (frontend/lib/compressImage.ts), so this is
+    // the second line of defence.
+    const transformation = "c_limit,w_2000,h_2000/q_auto:good";
     const paramsToSign = { timestamp, folder, transformation };
     const sortedParams = Object.keys(paramsToSign)
       .sort()
